@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+	<head>
+		<title>MicroBreathe Dashboard</title>
+
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				text-align: center;
+				padding-top: 50px;
+			}
+
+			.card {
+				display: inline-block;
+				padding: 30px;
+				margin: 10px;
+				border: 1px solid #ccc;
+				border-radius: 15px;
+				min-width: 200px;
+			}
+
+			.value {
+				font-size: 40px;
+				font-weight: bold;
+			}
+		</style>
+	</head>
+
+	<body>
+		<h1>MicroBreathe Dashboard</h1>
+
+		<div class="card">
+			<h2>Temperature</h2>
+			<div class="value"><span id="temperature">--</span> °C</div>
+		</div>
+
+		<div class="card">
+			<h2>Humidity</h2>
+			<div class="value"><span id="humidity">--</span> %</div>
+		</div>
+
+		<script>
+			async function updateDashboard() {
+				const response = await fetch("/api/sensor");
+				const data = await response.json();
+
+				if (data.temperature !== null) {
+					document.getElementById("temperature").textContent =
+						data.temperature;
+				}
+
+				if (data.humidity !== null) {
+					document.getElementById("humidity").textContent =
+						data.humidity;
+				}
+			}
+
+			updateDashboard();
+
+			setInterval(updateDashboard, 2000);
+		</script>
+	</body>
+</html>
