@@ -1,15 +1,20 @@
 # MicroBreathe
 
-MicroBreathe is a small indoor-climate monitor built with an ESP32, a DHT22
+MicroBreathe is a small climate-monitoring prototype built with an ESP32, a DHT22
 temperature and humidity sensor, and a Flask web dashboard. The ESP32 sends a
-reading to the Flask server every five seconds, while the dashboard fetches the
-latest reading every two seconds.
+reading to the Flask server every five seconds. The current dashboard uses
+Leaflet and OpenStreetMap to show six sensor poles around Bangkok, Thailand.
+Pole 03 at Victory Monument displays the latest ESP32 reading received by Flask;
+the other five poles use mock data. Each pole displays temperature and humidity
+only.
 
 ```mermaid
 flowchart LR
     DHT22[DHT22 sensor] --> ESP32[ESP32 running MicroPython]
     ESP32 -- POST /api/sensor --> Flask[Flask server]
-    Flask -- GET /api/sensor --> Browser[Web dashboard]
+    Flask -- GET / --> Browser[Leaflet dashboard]
+    Flask -- GET /api/sensor every 2 seconds --> Browser
+    Browser -- Map tiles --> OSM[OpenStreetMap]
 ```
 
 ## What you need
@@ -19,6 +24,7 @@ flowchart LR
 - Python 3
 - A computer and ESP32 connected to the same local network
 - A web browser
+- An internet connection for Leaflet and the OpenStreetMap map tiles
 
 ### Hardware
 
@@ -72,8 +78,19 @@ Start the server:
 python app.py
 ```
 
-Open <http://127.0.0.1:5001> on the server computer. The cards display `--`
-until the server receives its first sensor reading.
+Open <http://127.0.0.1:5001> on the server computer. The real Bangkok map opens
+with poles at Lumphini Park, Benjakitti Park, Victory Monument, Chatuchak Park,
+Yaowarat, and Sanam Luang. Select any map marker or sensor card to display its
+temperature and humidity in the details panel.
+
+Pole 03 starts with `--` values and polls `/api/sensor` every two seconds. After
+Flask receives an ESP32 reading, Pole 03's map popup, sensor card, and details
+panel update without reloading the page. The other five poles remain mock data.
+
+The interactive map uses Leaflet 1.9.4 and standard OpenStreetMap tiles. The map
+keeps the required visible `© OpenStreetMap contributors` attribution. The
+standard tile service is appropriate for normal prototype viewing; do not add
+bulk-download or offline-prefetch behavior.
 
 ## 2. Find the server's local IP address
 
@@ -127,8 +144,9 @@ The firmware must provide either the `requests` or `urequests` module used to
 send HTTP requests.
 
 After the board restarts, its serial output should show the Wi-Fi connection,
-sensor values, and an HTTP `200` response. Refresh the dashboard if the readings
-do not appear immediately.
+sensor values, and an HTTP `200` response. Use `GET /api/sensor` to confirm the
+latest physical reading; the Bangkok map displays it on Pole 03 while the other
+five poles retain their mock values.
 
 ## Test without an ESP32
 
@@ -146,14 +164,16 @@ Then inspect the stored reading:
 curl http://127.0.0.1:5001/api/sensor
 ```
 
-The dashboard should show `26.4 °C` and `58.2 %`.
+Within two seconds, Pole 03 at Victory Monument should show `26.4 °C` and
+`58.2 %` in its map popup, sensor card, and details panel. The other five poles
+keep their mock values.
 
 ## API
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/sensor` | Replace the latest temperature and humidity reading |
-| `GET` | `/api/sensor` | Return the latest reading as JSON |
+| `POST` | `/api/sensor` | Validate and replace Pole 03's latest reading |
+| `GET` | `/api/sensor` | Return Pole 03's latest reading as JSON |
 | `GET` | `/` | Open the dashboard |
 
 Example request body:
@@ -170,13 +190,19 @@ Example response from `GET /api/sensor`:
 ```json
 {
   "humidity": 58.2,
+  "pole_id": "pole-03",
+  "received_at": "2026-08-13T07:30:00+00:00",
   "temperature": 26.4
 }
 ```
 
+Temperature must be between `-40` and `80` °C, and humidity must be between
+`0` and `100` percent. Invalid or missing JSON values receive HTTP `400` and do
+not replace the last valid reading.
+
 ## Troubleshooting
 
-- **The dashboard still shows `--`:** confirm the ESP32 reports HTTP `200`,
+- **The sensor API still returns `null`:** confirm the ESP32 reports HTTP `200`,
   verify `SERVER_URL`, and try the `curl` test above.
 - **The ESP32 cannot reach the server:** confirm both devices are on the same
   network, use the computer's local IP address, and allow incoming connections
@@ -185,6 +211,9 @@ Example response from `GET /api/sensor`:
   the required pull-up resistor.
 - **Port 5001 is already in use:** stop the process using that port or change the
   port in both `app.py` and `SERVER_URL`.
+- **The Bangkok map is blank:** confirm the browser has internet access and can
+  load `unpkg.com` and `tile.openstreetmap.org`. The sensor cards remain usable
+  when the map cannot load.
 - **Readings disappear after a restart:** the current server keeps only the
   latest reading in memory. It does not save readings to a database or file.
 
@@ -195,5 +224,9 @@ Example response from `GET /api/sensor`:
   directly to the public internet.
 - Only the latest reading is stored, and it is cleared whenever the server
   restarts.
-- The dashboard does not yet display history, charts, alerts, or multiple
-  sensors.
+- Pole 03 uses the latest physical reading; the other five poles still use mock
+  data.
+- The interactive base map requires internet access and uses OpenStreetMap's
+  best-effort community tile service.
+- The dashboard does not yet display particulate matter, history, charts, or
+  alerts.
